@@ -10,6 +10,9 @@ class LLMConfig(BaseSettings):
     llm_temperature: float = 0.0
     llm_streaming: bool = False
     transcription_model: str = "whisper-1"
+    embedding_model: str = "text-embedding-3-large"
+    embedding_dimensions: int = 3072
+    embedding_api_key: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file = ".env", extra = "allow")
 
@@ -21,7 +24,9 @@ class LLMConfig(BaseSettings):
             "apiKey": self.llm_api_key,
             "temperature": self.llm_temperature,
             "streaming": self.llm_stream,
-            "transcriptionModel": self.transcription_model
+            "transcriptionModel": self.transcription_model,
+            "embeddingModel": self.embedding_model,
+            "embeddingDimensions": self.embedding_dimensions
         }
 
 @lru_cache
