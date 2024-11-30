@@ -2,21 +2,24 @@ from typing import List, Union, BinaryIO
 from os import path
 import asyncio
 import dlt
-import duckdb
 
 import cognee.modules.ingestion as ingestion
 from cognee.infrastructure.files.storage import LocalStorage
 from cognee.modules.ingestion import get_matched_datasets, save_data_to_file
 from cognee.shared.utils import send_telemetry
 from cognee.base_config import get_base_config
-from cognee.infrastructure.databases.relational import get_relational_config, get_relational_engine, create_db_and_tables
-from cognee.modules.users.methods import create_default_user, get_default_user
+from cognee.infrastructure.databases.relational import get_relational_engine
+from cognee.modules.users.methods import get_default_user
+from cognee.tasks.ingestion import get_dlt_destination
 from cognee.modules.users.permissions.methods import give_permission_on_document
 from cognee.modules.users.models import User
-from cognee.modules.data.operations.ensure_dataset_exists import ensure_dataset_exists
+from cognee.modules.data.methods import create_dataset
+from cognee.infrastructure.databases.relational import create_db_and_tables as create_relational_db_and_tables
+from cognee.infrastructure.databases.vector.pgvector import create_db_and_tables as create_pgvector_db_and_tables
 
 async def add(data: Union[BinaryIO, List[BinaryIO], str, List[str]], dataset_name: str = "main_dataset", user: User = None):
-    await create_db_and_tables()
+    await create_relational_db_and_tables()
+    await create_pgvector_db_and_tables()
 
     if isinstance(data, str):
         if "data://" in data:
@@ -55,7 +58,10 @@ async def add(data: Union[BinaryIO, List[BinaryIO], str, List[str]], dataset_nam
 
     return []
 
-async def add_files(file_paths: List[str], dataset_name: str,  user):
+async def add_files(file_paths: List[str], dataset_name: str, user: User = None):
+    if user is None:
+        user = await get_default_user()
+  
     base_config = get_base_config()
     data_directory_path = base_config.data_root_directory
 
@@ -76,24 +82,7 @@ async def add_files(file_paths: List[str], dataset_name: str,  user):
         else:
             processed_file_paths.append(file_path)
 
-    relational_config = get_relational_config()
-
-    if relational_config.db_provider == "duckdb":
-        db = duckdb.connect(relational_config.db_file_path)
-
-        destination = dlt.destinations.duckdb(
-          credentials = db,
-        )
-    else:
-        destination = dlt.destinations.postgres(
-            credentials = {
-                "host": relational_config.db_host,
-                "port": relational_config.db_port,
-                "user": relational_config.db_user,
-                "password": relational_config.db_password,
-                "database": relational_config.db_name,
-            },
-        )
+    destination = get_dlt_destination()
 
     pipeline = dlt.pipeline(
         pipeline_name = "file_load_from_filesystem",
@@ -101,7 +90,6 @@ async def add_files(file_paths: List[str], dataset_name: str,  user):
     )
 
     dataset_name = dataset_name.replace(" ", "_").replace(".", "_") if dataset_name is not None else "main_dataset"
-    dataset = await ensure_dataset_exists(dataset_name)
 
     @dlt.resource(standalone = True, merge_key = "id")
     async def data_resources(file_paths: str, user: User):
@@ -115,8 +103,12 @@ async def add_files(file_paths: List[str], dataset_name: str,  user):
 
                 from sqlalchemy import select
                 from cognee.modules.data.models import Data
+
                 db_engine = get_relational_engine()
+
                 async with db_engine.get_async_session() as session:
+                    dataset = await create_dataset(dataset_name, user.id, session)
+
                     data = (await session.execute(
                         select(Data).filter(Data.id == data_id)
                     )).scalar_one_or_none()
@@ -137,10 +129,8 @@ async def add_files(file_paths: List[str], dataset_name: str,  user):
                             extension = file_metadata["extension"],
                             mime_type = file_metadata["mime_type"],
                         )
+
                         dataset.data.append(data)
-
-                        await session.merge(dataset)
-
                         await session.commit()
 
                 yield {
@@ -155,18 +145,13 @@ async def add_files(file_paths: List[str], dataset_name: str,  user):
                 await give_permission_on_document(user, data_id, "write")
 
 
-    if user is None:
-        user = await get_default_user()
-
-        if user is None:
-            user = await create_default_user()
-
+    send_telemetry("cognee.add EXECUTION STARTED", user_id = user.id)
     run_info = pipeline.run(
         data_resources(processed_file_paths, user),
         table_name = "file_metadata",
         dataset_name = dataset_name,
         write_disposition = "merge",
     )
-    send_telemetry("cognee.add")
+    send_telemetry("cognee.add EXECUTION COMPLETED", user_id = user.id)
 
     return run_info

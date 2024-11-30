@@ -1,14 +1,15 @@
 from uuid import UUID as uuid_UUID
-from sqlalchemy import ForeignKey, UUID, Column
+from sqlalchemy import ForeignKey, Column, UUID
 from sqlalchemy.orm import relationship, Mapped
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from .Principal import Principal
 from .UserGroup import UserGroup
+from .Group import Group
 
 class User(SQLAlchemyBaseUserTableUUID, Principal):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid = True), ForeignKey("principals.id"), primary_key = True)
+    id = Column(UUID, ForeignKey("principals.id"), primary_key = True)
 
     groups: Mapped[list["Group"]] = relationship(
         secondary = UserGroup.__tablename__,
@@ -24,7 +25,7 @@ class User(SQLAlchemyBaseUserTableUUID, Principal):
 from fastapi_users import schemas
 
 class UserRead(schemas.BaseUser[uuid_UUID]):
-    groups: list[uuid_UUID]  # Add groups attribute
+    pass
 
 class UserCreate(schemas.BaseUserCreate):
     pass

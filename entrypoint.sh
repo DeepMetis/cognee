@@ -3,9 +3,23 @@
 echo "Debug mode: $DEBUG"
 echo "Environment: $ENVIRONMENT"
 
+
+# # Run Alembic migrations
+# echo "Running database migrations..."
+# poetry run alembic upgrade head
+
+# # Check if the migrations were successful
+# if [ $? -eq 0 ]; then
+#     echo "Migrations completed successfully."
+# else
+#     echo "Migration failed, exiting."
+#     exit 1
+# fi
+
+
 echo "Starting Gunicorn"
 
-if [ "$ENVIRONMENT" = "local" ]; then
+if [ "$ENVIRONMENT" = "dev" ]; then
   if [ "$DEBUG" = true ]; then
     echo "Waiting for the debugger to attach..."
 
@@ -15,4 +29,5 @@ if [ "$ENVIRONMENT" = "local" ]; then
   fi
 else
   gunicorn -w 3 -k uvicorn.workers.UvicornWorker -t 30000 --bind=0.0.0.0:8000 --log-level error cognee.api.client:app
+  # python ./cognee/api/client.py
 fi

@@ -8,6 +8,8 @@ edit_uri: edit/main/docs/
 copyright: Copyright &copy; 2024 cognee
 theme:
   name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
   icon:
     repo: fontawesome/brands/github
     edit: material/pencil
@@ -45,31 +47,30 @@ theme:
     - navigation.prune
     - navigation.sections
     - navigation.tabs
-    # - navigation.tabs.sticky
     - navigation.top
     - navigation.tracking
+    - navigation.path
     - search.highlight
     - search.share
     - search.suggest
     - toc.follow
     # - toc.integrate
   palette:
-      - scheme: default
-        primary: black
-        accent: indigo
-        toggle:
-          icon: material/brightness-7
-          name: Switch to dark mode
-      - scheme: slate
-        primary: black
-        accent: indigo
-        toggle:
-          icon: material/brightness-4
-          name: Switch to light mode
+      - scheme: cognee
+        primary: custom
   font:
     text: Roboto
     code: Roboto Mono
   custom_dir: docs/overrides
+
+extra:
+  analytics:
+    provider: segment
+    key: !ENV DOCS_SEGMENT_KEY
+
+extra_css:
+  - stylesheets/extra.css
+
 # Extensions
 markdown_extensions:
   - abbr
@@ -117,35 +118,31 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
 nav:
-  - Introduction:
-    - Welcome to cognee: 'index.md'
-    - Quickstart: 'quickstart.md'
-    - Conceptual overview: 'conceptual_overview.md'
-    - Learning materials: 'rags.md'
-    - Blog: 'blog/index.md'
-    - Research: 'research.md'
-    - Local models: 'local_models.md'
-    - Api reference: 'api_reference.md'
-  - Blog:
-      - "blog/index.md"
-  - Why cognee:
-      - "why.md"
-  - Research:
-      - "research.md"
-  - Api reference:
-      - 'api_reference.md'
-  - Team:
-      - "team.md"
+  - Overview:
+    - Overview: 'index.md'
+    - Start here:
+        - Installation: 'quickstart.md'
+        - Add data: 'data_ingestion.md'
+        - Create LLM enriched data store: 'templates.md'
+        - Explore data: 'search.md'
+    - Configuration: 'configuration.md'
+    - What is cognee:
+      - Introduction: 'conceptual_overview.md'
+    - API reference: 'api_reference.md'
+
 
 plugins:
-  - mkdocs-jupyter:
-      ignore_h1_titles: true
-      execute: false
-  - social
   - search:
       separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+
   - minify:
       minify_html: true
+      minify_js: true
+      minify_css: true
+      htmlmin_opts:
+          remove_comments: true
+      cache_safe: true
+
   - mkdocstrings:
       handlers:
         python:
@@ -153,13 +150,3 @@ plugins:
             members_order: alphabetical
             allow_inspection: true
             show_bases: true
-  - blog:
-      enabled: !ENV CI
-      blog_dir: "blog"
-      blog_toc: true
-      post_dir: blog/posts
-      post_date_format: yyyy/MM/dd
-      post_url_format: "{date}/{slug}"
-      authors_file: "{blog}/.authors.yml"
-
-

@@ -4,13 +4,13 @@
 .prod.env
 cognee/.data/
 
-
+*.lance/
+.DS_Store
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-notebooks/
 full_run.ipynb
 evals/
 
@@ -178,3 +178,6 @@ cognee/cache/
 # Default cognee system directory, used in development
 .cognee_system/
 .data_storage/
+.anon_id
+
+node_modules/

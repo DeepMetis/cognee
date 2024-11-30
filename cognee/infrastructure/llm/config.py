@@ -4,9 +4,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class LLMConfig(BaseSettings):
     llm_provider: str = "openai"
-    llm_model: str = "gpt-4o"
+    llm_model: str = "gpt-4o-mini"
     llm_endpoint: str = ""
     llm_api_key: Optional[str] = None
+    llm_api_version: Optional[str] = None
     llm_temperature: float = 0.0
     llm_streaming: bool = False
     transcription_model: str = "whisper-1"
@@ -21,12 +22,13 @@ class LLMConfig(BaseSettings):
             "provider": self.llm_provider,
             "model": self.llm_model,
             "endpoint": self.llm_endpoint,
-            "apiKey": self.llm_api_key,
+            "api_key": self.llm_api_key,
+            "api_version": self.llm_api_version,
             "temperature": self.llm_temperature,
-            "streaming": self.llm_stream,
-            "transcriptionModel": self.transcription_model,
-            "embeddingModel": self.embedding_model,
-            "embeddingDimensions": self.embedding_dimensions
+            "embedding_model": self.embedding_model,
+            "embedding_dimensions": self.embedding_dimensions,
+            "streaming": self.llm_streaming,
+            "transcription_model": self.transcription_model
         }
 
 @lru_cache

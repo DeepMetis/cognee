@@ -5,6 +5,7 @@ from cognee.modules.cognify.config import get_cognify_config
 from cognee.infrastructure.data.chunking.config import get_chunk_config
 from cognee.infrastructure.databases.vector import get_vectordb_config
 from cognee.infrastructure.databases.graph.config import get_graph_config
+from cognee.infrastructure.llm.config import get_llm_config
 from cognee.infrastructure.databases.relational import get_relational_config
 from cognee.infrastructure.files.storage import LocalStorage
 
@@ -21,7 +22,7 @@ class config():
         graph_config.graph_file_path = os.path.join(databases_directory_path, "cognee.graph")
 
         vector_config = get_vectordb_config()
-        if vector_config.vector_engine_provider == "lancedb":
+        if vector_config.vector_db_provider == "lancedb":
             vector_config.vector_db_url = os.path.join(databases_directory_path, "cognee.lancedb")
 
     @staticmethod
@@ -45,19 +46,9 @@ class config():
         cognify_config.summarization_model=summarization_model
 
     @staticmethod
-    def set_labeling_model(labeling_model: object):
-        cognify_config = get_cognify_config()
-        cognify_config.labeling_model =labeling_model
-
-    @staticmethod
     def set_graph_model(graph_model: object):
         graph_config = get_graph_config()
         graph_config.graph_model = graph_model
-
-    @staticmethod
-    def set_cognitive_layer_model(cognitive_layer_model: object):
-        cognify_config = get_cognify_config()
-        cognify_config.cognitive_layer_model = cognitive_layer_model
 
     @staticmethod
     def set_graph_database_provider(graph_database_provider: str):
@@ -65,29 +56,36 @@ class config():
         graph_config.graph_database_provider = graph_database_provider
 
     @staticmethod
-    def llm_provider(llm_provider: str):
-        graph_config = get_graph_config()
-        graph_config.llm_provider = llm_provider
+    def set_llm_provider(llm_provider: str):
+        llm_config = get_llm_config()
+        llm_config.llm_provider = llm_provider
 
     @staticmethod
-    def llm_endpoint(llm_endpoint: str):
-        graph_config = get_graph_config()
-        graph_config.llm_endpoint = llm_endpoint
+    def set_llm_endpoint(llm_endpoint: str):
+        llm_config = get_llm_config()
+        llm_config.llm_endpoint = llm_endpoint
 
     @staticmethod
-    def llm_model(llm_model: str):
-        graph_config = get_graph_config()
-        graph_config.llm_model = llm_model
+    def set_llm_model(llm_model: str):
+        llm_config = get_llm_config()
+        llm_config.llm_model = llm_model
 
     @staticmethod
-    def intra_layer_score_treshold(intra_layer_score_treshold: str):
-        cognify_config = get_cognify_config()
-        cognify_config.intra_layer_score_treshold = intra_layer_score_treshold
+    def set_llm_api_key(llm_api_key: str):
+        llm_config = get_llm_config()
+        llm_config.llm_api_key = llm_api_key
 
     @staticmethod
-    def connect_documents(connect_documents: bool):
-        cognify_config = get_cognify_config()
-        cognify_config.connect_documents = connect_documents
+    def set_llm_config(config_dict: dict):
+        """
+            Updates the llm config with values from config_dict.
+        """
+        llm_config = get_llm_config()
+        for key, value in config_dict.items():
+            if hasattr(llm_config, key):
+                object.__setattr__(llm_config, key, value)
+            else:
+                raise AttributeError(f"'{key}' is not a valid attribute of the config.")
 
     @staticmethod
     def set_chunk_strategy(chunk_strategy: object):
@@ -111,9 +109,33 @@ class config():
 
 
     @staticmethod
-    def set_vector_engine_provider(vector_engine_provider: str):
+    def set_vector_db_provider(vector_db_provider: str):
         vector_db_config = get_vectordb_config()
-        vector_db_config.vector_engine_provider = vector_engine_provider
+        vector_db_config.vector_db_provider = vector_db_provider
+
+    @staticmethod
+    def set_relational_db_config(config_dict: dict):
+        """
+            Updates the relational db config with values from config_dict.
+        """
+        relational_db_config = get_relational_config()
+        for key, value in config_dict.items():
+            if hasattr(relational_db_config, key):
+                object.__setattr__(relational_db_config, key, value)
+            else:
+                raise AttributeError(f"'{key}' is not a valid attribute of the config.")
+
+    @staticmethod
+    def set_vector_db_config(config_dict: dict):
+        """
+            Updates the vector db config with values from config_dict.
+        """
+        vector_db_config = get_vectordb_config()
+        for key, value in config_dict.items():
+            if hasattr(vector_db_config, key):
+                object.__setattr__(vector_db_config, key, value)
+            else:
+                raise AttributeError(f"'{key}' is not a valid attribute of the config.")
 
     @staticmethod
     def set_vector_db_key(db_key: str):
@@ -127,14 +149,11 @@ class config():
         vector_db_config.vector_db_url = db_url
 
     @staticmethod
-    def set_graphistry_username(graphistry_username: str):
+    def set_graphistry_config(graphistry_config: dict[str, str]):
         base_config = get_base_config()
-        base_config.graphistry_username = graphistry_username
 
-    @staticmethod
-    def set_graphistry_password(graphistry_password: str):
-        base_config = get_base_config()
-        base_config.graphistry_password = graphistry_password
+        if "username" not in graphistry_config or "password" not in graphistry_config:
+            raise ValueError("graphistry_config dictionary must contain 'username' and 'password' keys.")
 
-
-
+        base_config.graphistry_username = graphistry_config.get("username")
+        base_config.graphistry_password = graphistry_config.get("password")

@@ -3,7 +3,7 @@ from abc import abstractmethod
 
 class GraphDBInterface(Protocol):
     @abstractmethod
-    async def graph(self):
+    async def query(self, query: str, params: dict):
         raise NotImplementedError
 
     @abstractmethod
@@ -61,4 +61,9 @@ class GraphDBInterface(Protocol):
     @abstractmethod
     async def delete_graph(
         self,
+    ): raise NotImplementedError
+
+    @abstractmethod
+    async def get_graph_data(
+        self
     ): raise NotImplementedError

@@ -8,11 +8,11 @@ from .ACLResources import ACLResources
 class Resource(Base):
     __tablename__ = "resources"
 
-    id = Column(UUID(as_uuid = True), primary_key = True, default = uuid4)
+    id = Column(UUID, primary_key = True, default = uuid4)
 
     created_at = Column(DateTime(timezone = True), default = lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone = True), onupdate = lambda: datetime.now(timezone.utc))
 
-    resource_id = Column(UUID(as_uuid = True), nullable = False)
+    resource_id = Column(UUID, nullable = False)
 
     acls = relationship("ACL", secondary = ACLResources.__tablename__, back_populates = "resources")

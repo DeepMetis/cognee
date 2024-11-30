@@ -19,7 +19,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0'
+          cpus: '2.0'
           memory: 8GB
 
   frontend:
@@ -62,7 +62,7 @@ services:
       - cognee-network
 
   postgres:
-    image: postgres:latest
+    image: pgvector/pgvector:pg17
     container_name: postgres
     environment:
       POSTGRES_USER: cognee

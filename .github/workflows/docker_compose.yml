@@ -14,16 +14,22 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@master
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
     - name: Build Docker images
+      env:
+        ENVIRONMENT: dev
+        ENV: dev
       run: |
         docker compose -f docker-compose.yml build
 
     - name: Run Docker Compose
+      env:
+        ENVIRONMENT: dev
+        ENV: dev
       run: |
         docker compose -f docker-compose.yml up -d
 

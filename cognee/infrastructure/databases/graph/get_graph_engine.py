@@ -2,7 +2,6 @@
 
 from .config import get_graph_config
 from .graph_db_interface import GraphDBInterface
-from .networkx.adapter import NetworkXAdapter
 
 
 async def get_graph_engine() -> GraphDBInterface :
@@ -10,30 +9,33 @@ async def get_graph_engine() -> GraphDBInterface :
     config = get_graph_config()
 
     if config.graph_database_provider == "neo4j":
-        try:
-            from .neo4j_driver.adapter import Neo4jAdapter
+        if not (config.graph_database_url and config.graph_database_username and config.graph_database_password):
+            raise EnvironmentError("Missing required Neo4j credentials.")
+      
+        from .neo4j_driver.adapter import Neo4jAdapter
 
-            return Neo4jAdapter(
-                graph_database_url = config.graph_database_url,
-                graph_database_username = config.graph_database_username,
-                graph_database_password = config.graph_database_password
-            )
-        except:
-            pass
+        return Neo4jAdapter(
+            graph_database_url = config.graph_database_url,
+            graph_database_username = config.graph_database_username,
+            graph_database_password = config.graph_database_password
+        )
 
-    elif config.graph_database_provider == "falkorb":
-        try:
-            from .falkordb.adapter import FalcorDBAdapter
+    elif config.graph_database_provider == "falkordb":
+        if not (config.graph_database_url and config.graph_database_username and config.graph_database_password):
+            raise EnvironmentError("Missing required FalkorDB credentials.")
+      
+        from cognee.infrastructure.databases.vector.embeddings import get_embedding_engine
+        from cognee.infrastructure.databases.hybrid.falkordb.FalkorDBAdapter import FalkorDBAdapter
 
-            return FalcorDBAdapter(
-                graph_database_url = config.graph_database_url,
-                graph_database_username = config.graph_database_username,
-                graph_database_password = config.graph_database_password,
-                graph_database_port = config.graph_database_port
-            )
-        except:
-            pass
+        embedding_engine = get_embedding_engine()
 
+        return FalkorDBAdapter(
+            database_url = config.graph_database_url,
+            database_port = config.graph_database_port,
+            embedding_engine = embedding_engine,
+        )
+
+    from .networkx.adapter import NetworkXAdapter
     graph_client = NetworkXAdapter(filename = config.graph_file_path)
 
     if graph_client.graph is None:

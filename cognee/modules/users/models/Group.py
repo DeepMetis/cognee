@@ -6,7 +6,7 @@ from .UserGroup import UserGroup
 class Group(Principal):
     __tablename__ = "groups"
 
-    id = Column(UUID(as_uuid = True), ForeignKey("principals.id"), primary_key = True)
+    id = Column(UUID, ForeignKey("principals.id"), primary_key = True)
 
     name = Column(String, unique = True, nullable = False, index = True)
 

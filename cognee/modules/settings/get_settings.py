@@ -1,7 +1,35 @@
+from enum import Enum
+from pydantic import BaseModel
 from cognee.infrastructure.databases.vector import get_vectordb_config
 from cognee.infrastructure.llm import get_llm_config
 
-def get_settings():
+class ConfigChoice(BaseModel):
+    value: str
+    label: str
+
+class ModelName(Enum):
+    openai = "openai"
+    ollama = "ollama"
+    anthropic = "anthropic"
+    
+class LLMConfig(BaseModel):
+    api_key: str
+    model: ConfigChoice
+    provider: ConfigChoice
+    models: dict[str, list[ConfigChoice]]
+    providers: list[ConfigChoice]
+
+class VectorDBConfig(BaseModel):
+    api_key: str
+    url: str
+    provider: ConfigChoice
+    providers: list[ConfigChoice]
+
+class SettingsDict(BaseModel):
+    llm: LLMConfig
+    vector_db: VectorDBConfig
+
+def get_settings() -> SettingsDict:
     llm_config = get_llm_config()
 
     vector_dbs = [{
@@ -13,6 +41,9 @@ def get_settings():
     }, {
         "value": "lancedb",
         "label": "LanceDB",
+    }, {
+        "value": "pgvector",
+        "label": "PGVector",
     }]
 
     vector_config = get_vectordb_config()
@@ -28,9 +59,7 @@ def get_settings():
         "label": "Anthropic",
     }]
 
-    llm_config = get_llm_config()
-
-    return dict(
+    return SettingsDict.model_validate(dict(
         llm = {
             "provider": {
                 "label": llm_config.llm_provider,
@@ -40,10 +69,13 @@ def get_settings():
                 "value": llm_config.llm_model,
                 "label": llm_config.llm_model,
             } if llm_config.llm_model else None,
-            "apiKey": (llm_config.llm_api_key[:-10] + "**********") if llm_config.llm_api_key else None,
+            "api_key": (llm_config.llm_api_key[:-10] + "**********") if llm_config.llm_api_key else None,
             "providers": llm_providers,
             "models": {
                 "openai": [{
+                    "value": "gpt-4o-mini",
+                    "label": "gpt-4o-mini",
+                }, {
                     "value": "gpt-4o",
                     "label": "gpt-4o",
                 }, {
@@ -72,13 +104,13 @@ def get_settings():
                 }]
             },
         },
-        vectorDB = {
+        vector_db = {
             "provider": {
-                "label": vector_config.vector_engine_provider,
-                "value": vector_config.vector_engine_provider.lower(),
+                "label": vector_config.vector_db_provider,
+                "value": vector_config.vector_db_provider.lower(),
             },
             "url": vector_config.vector_db_url,
-            "apiKey": vector_config.vector_db_key,
-            "options": vector_dbs,
+            "api_key": vector_config.vector_db_key,
+            "providers": vector_dbs,
         },
-    )
+    ))

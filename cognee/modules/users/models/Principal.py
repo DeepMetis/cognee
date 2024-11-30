@@ -6,7 +6,7 @@ from cognee.infrastructure.databases.relational import Base
 class Principal(Base):
     __tablename__ = "principals"
 
-    id = Column(UUID(as_uuid = True), primary_key = True, index = True, default = uuid4)
+    id = Column(UUID, primary_key = True, index = True, default = uuid4)
 
     created_at = Column(DateTime(timezone = True), default = lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone = True), onupdate = lambda: datetime.now(timezone.utc))

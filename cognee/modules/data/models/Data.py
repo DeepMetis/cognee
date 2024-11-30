@@ -9,7 +9,7 @@ from .DatasetData import DatasetData
 class Data(Base):
     __tablename__ = "data"
 
-    id = Column(UUID(as_uuid = True), primary_key = True, default = uuid4)
+    id = Column(UUID, primary_key = True, default = uuid4)
 
     name = Column(String)
     extension = Column(String)
@@ -20,8 +20,11 @@ class Data(Base):
     updated_at = Column(DateTime(timezone = True), onupdate = lambda: datetime.now(timezone.utc))
 
     datasets: Mapped[List["Dataset"]] = relationship(
+        "Dataset",
         secondary = DatasetData.__tablename__,
-        back_populates = "data"
+        back_populates = "data",
+        lazy = "noload",
+        cascade="all, delete"
     )
 
     def to_json(self) -> dict:
