@@ -56,12 +56,16 @@ class LiteLLMEmbeddingEngine(EmbeddingEngine):
 
                 return [data["embedding"] for data in response["data"]]
             else:
-                response = await litellm.aembedding(
+                # TODO(Hamza Zouari): file an issue with litellm
+                # `aembedding` is not awaiting the call internally
+                # causing it to return a coroutine instead of the result
+                response = await (await litellm.aembedding(
                     self.model,
                     input=text,
                     api_key=self.api_key,
                     api_base=self.endpoint,
                     api_version=self.api_version
+                )
                 )
 
                 self.retry_count = 0
@@ -97,7 +101,7 @@ class LiteLLMEmbeddingEngine(EmbeddingEngine):
 
             return await self.embed_text(text)
 
-        except (litellm.exceptions.BadRequestError, litellm.llms.OpenAI.openai.OpenAIError):
+        except (litellm.exceptions.BadRequestError, litellm.exceptions.OpenAIError):
             raise EmbeddingException("Failed to index data points.")
 
         except Exception as error:
