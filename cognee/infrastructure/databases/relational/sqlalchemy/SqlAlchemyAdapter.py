@@ -1,13 +1,22 @@
+import os
 from os import path
+import  logging
 from uuid import UUID
 from typing import Optional
 from typing import AsyncGenerator, List
 from contextlib import asynccontextmanager
-from sqlalchemy import text, select, MetaData, Table
+from sqlalchemy import text, select, MetaData, Table, delete
 from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
+from cognee.infrastructure.databases.exceptions import EntityNotFoundError
+from cognee.modules.data.models.Data import Data
+
 from ..ModelBase import Base
+
+
+logger = logging.getLogger(__name__)
 
 class SQLAlchemyAdapter():
     def __init__(self, connection_string: str):
@@ -85,9 +94,9 @@ class SQLAlchemyAdapter():
                 return [schema[0] for schema in result.fetchall()]
         return []
 
-    async def delete_data_by_id(self, table_name: str, data_id: UUID, schema_name: Optional[str] = "public"):
+    async def delete_entity_by_id(self, table_name: str, data_id: UUID, schema_name: Optional[str] = "public"):
         """
-        Delete data in given table based on id. Table must have an id Column.
+        Delete entity in given table based on id. Table must have an id Column.
         """
         if self.engine.dialect.name == "sqlite":
             async with self.get_async_session() as session:
@@ -106,6 +115,42 @@ class SQLAlchemyAdapter():
                 await session.commit()
 
 
+    async def delete_data_entity(self, data_id: UUID):
+        """
+        Delete data and local files related to data if there are no references to it anymore.
+        """
+        async with self.get_async_session() as session:
+            if self.engine.dialect.name == "sqlite":
+                # Foreign key constraints are disabled by default in SQLite (for backwards compatibility),
+                # so must be enabled for each database connection/session separately.
+                await session.execute(text("PRAGMA foreign_keys = ON;"))
+
+            try:
+                data_entity = (await session.scalars(select(Data).where(Data.id == data_id))).one()
+            except (ValueError, NoResultFound) as e:
+                raise EntityNotFoundError(message=f"Entity not found: {str(e)}")
+
+            # Check if other data objects point to the same raw data location
+            raw_data_location_entities = (await session.execute(
+                select(Data.raw_data_location).where(Data.raw_data_location == data_entity.raw_data_location))).all()
+
+            # Don't delete local file unless this is the only reference to the file in the database
+            if len(raw_data_location_entities) == 1:
+
+                # delete local file only if it's created by cognee
+                from cognee.base_config import get_base_config
+                config = get_base_config()
+
+                if config.data_root_directory in raw_data_location_entities[0].raw_data_location:
+                    if os.path.exists(raw_data_location_entities[0].raw_data_location):
+                        os.remove(raw_data_location_entities[0].raw_data_location)
+                    else:
+                        # Report bug as file should exist
+                        logger.error("Local file which should exist can't be found.")
+
+            await session.execute(delete(Data).where(Data.id == data_id))
+            await session.commit()
+
     async def get_table(self, table_name: str, schema_name: Optional[str] = "public") -> Table:
         """
         Dynamically loads a table using the given table name and schema name.
@@ -117,7 +162,7 @@ class SQLAlchemyAdapter():
                 if table_name in Base.metadata.tables:
                     return Base.metadata.tables[table_name]
                 else:
-                    raise ValueError(f"Table '{table_name}' not found.")
+                    raise EntityNotFoundError(message=f"Table '{table_name}' not found.")
             else:
                 # Create a MetaData instance to load table information
                 metadata = MetaData()
@@ -128,7 +173,7 @@ class SQLAlchemyAdapter():
                 # Check if table is in list of tables for the given schema
                 if full_table_name in metadata.tables:
                     return metadata.tables[full_table_name]
-                raise ValueError(f"Table '{full_table_name}' not found.")
+                raise EntityNotFoundError(message=f"Table '{full_table_name}' not found.")
 
     async def get_table_names(self) -> List[str]:
         """
@@ -171,6 +216,27 @@ class SQLAlchemyAdapter():
                 results = await connection.execute(query)
             return {result["data_id"]: result["status"] for result in results}
 
+    async def get_all_data_from_table(self, table_name: str, schema: str = "public"):
+        async with self.get_async_session() as session:
+            # Validate inputs to prevent SQL injection
+            if not table_name.isidentifier():
+                raise ValueError("Invalid table name")
+            if schema and not schema.isidentifier():
+                raise ValueError("Invalid schema name")
+
+            if self.engine.dialect.name == "sqlite":
+                table = await self.get_table(table_name)
+            else:
+                table = await self.get_table(table_name, schema)
+
+            # Query all data from the table
+            query = select(table)
+            result = await session.execute(query)
+
+            # Fetch all rows as a list of dictionaries
+            rows = result.mappings().all()
+            return rows
+
     async def execute_query(self, query):
         async with self.engine.begin() as connection:
             result = await connection.execute(text(query))
@@ -205,7 +271,6 @@ class SQLAlchemyAdapter():
                 from cognee.infrastructure.files.storage import LocalStorage
 
                 LocalStorage.remove(self.db_path)
-                self.db_path = None
             else:
                 async with self.engine.begin() as connection:
                     schema_list = await self.get_schema_list()

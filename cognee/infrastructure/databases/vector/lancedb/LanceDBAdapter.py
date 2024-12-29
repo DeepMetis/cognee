@@ -1,23 +1,29 @@
-import inspect
-from typing import List, Optional, get_type_hints, Generic, TypeVar
 import asyncio
+from typing import Generic, List, Optional, TypeVar, get_type_hints
 from uuid import UUID
+
 import lancedb
+from lancedb.pydantic import LanceModel, Vector
 from pydantic import BaseModel
-from lancedb.pydantic import Vector, LanceModel
+
+from cognee.exceptions import InvalidValueError
 from cognee.infrastructure.engine import DataPoint
 from cognee.infrastructure.files.storage import LocalStorage
 from cognee.modules.storage.utils import copy_model, get_own_properties
-from ..models.ScoredResult import ScoredResult
-from ..vector_db_interface import VectorDBInterface
+
 from ..embeddings.EmbeddingEngine import EmbeddingEngine
+from ..models.ScoredResult import ScoredResult
+from ..utils import normalize_distances
+from ..vector_db_interface import VectorDBInterface
+
 
 class IndexSchema(DataPoint):
     id: str
     text: str
 
     _metadata: dict = {
-        "index_fields": ["text"]
+        "index_fields": ["text"],
+        "type": "IndexSchema"
     }
 
 class LanceDBAdapter(VectorDBInterface):
@@ -85,7 +91,7 @@ class LanceDBAdapter(VectorDBInterface):
         collection = await connection.open_table(collection_name)
 
         data_vectors = await self.embed_data(
-            [data_point.get_embeddable_data() for data_point in data_points]
+            [DataPoint.get_embeddable_data(data_point) for data_point in data_points]
         )
 
         IdType = TypeVar("IdType")
@@ -112,19 +118,11 @@ class LanceDBAdapter(VectorDBInterface):
                 for (data_point_index, data_point) in enumerate(data_points)
         ]
 
-        # TODO: This enables us to work with pydantic version but shouldn't
-        #  stay like this, existing rows should be updated
+        await collection.merge_insert("id") \
+            .when_matched_update_all() \
+            .when_not_matched_insert_all() \
+            .execute(lance_data_points)
 
-        await collection.delete("id IS NOT NULL")
-
-        original_size = await collection.count_rows()
-        await collection.add(lance_data_points)
-        new_size = await collection.count_rows()
-
-        if new_size <= original_size:
-            raise ValueError(
-                "LanceDB create_datapoints error: data points did not get added.")
-        
 
     async def retrieve(self, collection_name: str, data_point_ids: list[str]):
         connection = await self.get_connection()
@@ -141,6 +139,33 @@ class LanceDBAdapter(VectorDBInterface):
             score = 0,
         ) for result in results.to_dict("index").values()]
 
+    async def get_distance_from_collection_elements(
+        self,
+        collection_name: str,
+        query_text: str = None,
+        query_vector: List[float] = None
+    ):
+        if query_text is None and query_vector is None:
+            raise InvalidValueError(message="One of query_text or query_vector must be provided!")
+
+        if query_text and not query_vector:
+            query_vector = (await self.embedding_engine.embed_text([query_text]))[0]
+
+        connection = await self.get_connection()
+        collection = await connection.open_table(collection_name)
+
+        results = await collection.vector_search(query_vector).to_pandas()
+
+        result_values = list(results.to_dict("index").values())
+
+        normalized_values = normalize_distances(result_values)
+
+        return [ScoredResult(
+            id=UUID(result["id"]),
+            payload=result["payload"],
+            score=normalized_values[value_index],
+        ) for value_index, result in enumerate(result_values)]
+
     async def search(
         self,
         collection_name: str,
@@ -148,9 +173,10 @@ class LanceDBAdapter(VectorDBInterface):
         query_vector: List[float] = None,
         limit: int = 5,
         with_vector: bool = False,
+        normalized: bool = True
     ):
         if query_text is None and query_vector is None:
-            raise ValueError("One of query_text or query_vector must be provided!")
+            raise InvalidValueError(message="One of query_text or query_vector must be provided!")
 
         if query_text and not query_vector:
             query_vector = (await self.embedding_engine.embed_text([query_text]))[0]
@@ -162,26 +188,7 @@ class LanceDBAdapter(VectorDBInterface):
 
         result_values = list(results.to_dict("index").values())
 
-        min_value = 100
-        max_value = 0
-
-        for result in result_values:
-            value = float(result["_distance"])
-            if value > max_value:
-                max_value = value
-            if value < min_value:
-                min_value = value
-
-        normalized_values = []
-        min_value = min(result["_distance"] for result in result_values)
-        max_value = max(result["_distance"] for result in result_values)
-
-        if max_value == min_value:
-            # Avoid division by zero: Assign all normalized values to 0 (or any constant value like 1)
-            normalized_values = [0 for _ in result_values]
-        else:
-            normalized_values = [(result["_distance"] - min_value) / (max_value - min_value) for result in
-                                result_values]
+        normalized_values = normalize_distances(result_values)
 
         return [ScoredResult(
             id = UUID(result["id"]),

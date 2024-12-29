@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from cognee.exceptions import InvalidValueError
 from cognee.modules.graph.cognee_graph.CogneeGraphElements import Edge, Node
 
 
@@ -8,14 +9,14 @@ def test_node_initialization():
     """Test that a Node is initialized correctly."""
     node = Node("node1", {"attr1": "value1"}, dimension=2)
     assert node.id == "node1"
-    assert node.attributes == {"attr1": "value1"}
+    assert node.attributes == {"attr1": "value1", 'vector_distance': np.inf}
     assert len(node.status) == 2
     assert np.all(node.status == 1)
 
 
 def test_node_invalid_dimension():
     """Test that initializing a Node with a non-positive dimension raises an error."""
-    with pytest.raises(ValueError, match="Dimension must be a positive integer"):
+    with pytest.raises(InvalidValueError, match="Dimension must be a positive integer"):
         Node("node1", dimension=0)
 
 
@@ -68,7 +69,7 @@ def test_is_node_alive_in_dimension():
 def test_node_alive_invalid_dimension():
     """Test that checking alive status with an invalid dimension raises an error."""
     node = Node("node1", dimension=1)
-    with pytest.raises(ValueError, match="Dimension 1 is out of range"):
+    with pytest.raises(InvalidValueError, match="Dimension 1 is out of range"):
         node.is_node_alive_in_dimension(1)
 
 
@@ -95,7 +96,7 @@ def test_edge_initialization():
     edge = Edge(node1, node2, {"weight": 10}, directed=False, dimension=2)
     assert edge.node1 == node1
     assert edge.node2 == node2
-    assert edge.attributes == {"weight": 10}
+    assert edge.attributes == {'vector_distance': np.inf,"weight": 10}
     assert edge.directed is False
     assert len(edge.status) == 2
     assert np.all(edge.status == 1)
@@ -105,7 +106,7 @@ def test_edge_invalid_dimension():
     """Test that initializing an Edge with a non-positive dimension raises an error."""
     node1 = Node("node1")
     node2 = Node("node2")
-    with pytest.raises(ValueError, match="Dimensions must be a positive integer."):
+    with pytest.raises(InvalidValueError, match="Dimensions must be a positive integer."):
         Edge(node1, node2, dimension=0)
 
 
@@ -124,7 +125,7 @@ def test_edge_alive_invalid_dimension():
     node1 = Node("node1")
     node2 = Node("node2")
     edge = Edge(node1, node2, dimension=1)
-    with pytest.raises(ValueError, match="Dimension 1 is out of range"):
+    with pytest.raises(InvalidValueError, match="Dimension 1 is out of range"):
         edge.is_edge_alive_in_dimension(1)
 
 

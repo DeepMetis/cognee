@@ -1,5 +1,8 @@
 import numpy as np
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
+
+from cognee.exceptions import InvalidValueError
+
 
 class Node:
     """
@@ -18,9 +21,10 @@ class Node:
 
     def __init__(self, node_id: str, attributes: Optional[Dict[str, Any]] = None, dimension: int = 1):
         if dimension <= 0:
-            raise ValueError("Dimension must be a positive integer")
+            raise InvalidValueError(message="Dimension must be a positive integer")
         self.id = node_id
         self.attributes = attributes if attributes is not None else {}
+        self.attributes["vector_distance"] = float('inf')
         self.skeleton_neighbours = []
         self.skeleton_edges = []
         self.status = np.ones(dimension, dtype=int)
@@ -52,8 +56,20 @@ class Node:
 
     def is_node_alive_in_dimension(self, dimension: int) -> bool:
         if dimension < 0 or dimension >= len(self.status):
-            raise ValueError(f"Dimension {dimension} is out of range. Valid range is 0 to {len(self.status) - 1}.")
+            raise InvalidValueError(message=f"Dimension {dimension} is out of range. Valid range is 0 to {len(self.status) - 1}.")
         return self.status[dimension] == 1
+
+    def add_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+    def get_attribute(self, key: str) -> Union[str, int, float]:
+        return self.attributes[key]
+
+    def get_skeleton_edges(self):
+        return self.skeleton_edges
+
+    def get_skeleton_neighbours(self):
+        return self.skeleton_neighbours
 
     def __repr__(self) -> str:
         return f"Node({self.id}, attributes={self.attributes})"
@@ -83,17 +99,30 @@ class Edge:
 
     def __init__(self, node1: "Node", node2: "Node", attributes: Optional[Dict[str, Any]] = None, directed: bool = True, dimension: int = 1):
         if dimension <= 0:
-            raise ValueError("Dimensions must be a positive integer.")
+            raise InvalidValueError(message="Dimensions must be a positive integer.")
         self.node1 = node1
         self.node2 = node2
         self.attributes = attributes if attributes is not None else {}
+        self.attributes["vector_distance"] = float('inf')
         self.directed = directed
         self.status = np.ones(dimension, dtype=int)
 
     def is_edge_alive_in_dimension(self, dimension: int) -> bool:
         if dimension < 0 or dimension >= len(self.status):
-            raise ValueError(f"Dimension {dimension} is out of range. Valid range is 0 to {len(self.status) - 1}.")
+            raise InvalidValueError(message=f"Dimension {dimension} is out of range. Valid range is 0 to {len(self.status) - 1}.")
         return self.status[dimension] == 1
+
+    def add_attribute(self, key: str, value: Any) -> None:
+        self.attributes[key] = value
+
+    def get_attribute(self, key: str) -> Optional[Union[str, int, float]]:
+        return self.attributes.get(key)
+
+    def get_source_node(self):
+        return self.node1
+
+    def get_destination_node(self):
+        return self.node2
 
     def __repr__(self) -> str:
         direction = "->" if self.directed else "--"

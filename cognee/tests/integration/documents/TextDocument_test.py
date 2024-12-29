@@ -29,11 +29,11 @@ def test_TextDocument(input_file, chunk_size):
         input_file,
     )
     document = TextDocument(
-        id=uuid.uuid4(), name=input_file, raw_data_location=test_file_path
+        id=uuid.uuid4(), name=input_file, raw_data_location=test_file_path, metadata_id=uuid.uuid4(), mime_type="",
     )
 
     for ground_truth, paragraph_data in zip(
-        GROUND_TRUTH[input_file], document.read(chunk_size=chunk_size)
+        GROUND_TRUTH[input_file], document.read(chunk_size=chunk_size, chunker='text_chunker')
     ):
         assert (
             ground_truth["word_count"] == paragraph_data.word_count

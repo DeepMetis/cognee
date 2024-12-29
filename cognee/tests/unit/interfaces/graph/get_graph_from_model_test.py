@@ -1,89 +1,86 @@
+import asyncio
+import random
+from typing import List
+from uuid import NAMESPACE_OID, uuid5
+
+from cognee.infrastructure.engine import DataPoint
 from cognee.modules.graph.utils import get_graph_from_model
-from cognee.tests.unit.interfaces.graph.util import run_test_against_ground_truth
-
-CAR_SEDAN_EDGE = (
-    "car1",
-    "sedan",
-    "is_type",
-    {
-        "source_node_id": "car1",
-        "target_node_id": "sedan",
-        "relationship_name": "is_type",
-    },
-)
 
 
-BORIS_CAR_EDGE_GROUND_TRUTH = (
-    "boris",
-    "car1",
-    "owns_car",
-    {
-        "source_node_id": "boris",
-        "target_node_id": "car1",
-        "relationship_name": "owns_car",
-        "metadata": {"type": "list"},
-    },
-)
+class Document(DataPoint):
+    path: str
+    _metadata = {
+        "index_fields": [],
+        "type": "Document"
+    }
 
-CAR_TYPE_GROUND_TRUTH = {"id": "sedan"}
+class DocumentChunk(DataPoint):
+    part_of: Document
+    text: str
+    contains: List["Entity"] = None
+    _metadata = {
+        "index_fields": ["text"],
+        "type": "DocumentChunk"
+    }
 
-CAR_GROUND_TRUTH = {
-    "id": "car1",
-    "brand": "Toyota",
-    "model": "Camry",
-    "year": 2020,
-    "color": "Blue",
-}
+class EntityType(DataPoint):
+    name: str
+    _metadata = {
+        "index_fields": ["name"],
+        "type": "EntityType"
+    }
 
-PERSON_GROUND_TRUTH = {
-    "id": "boris",
-    "name": "Boris",
-    "age": 30,
-    "driving_license": {
-        "issued_by": "PU Vrsac",
-        "issued_on": "2025-11-06",
-        "number": "1234567890",
-        "expires_on": "2025-11-06",
-    },
-}
+class Entity(DataPoint):
+    name: str
+    is_type: EntityType
+    _metadata = {
+        "index_fields": ["name"],
+        "type": "Entity"
+    }
 
-
-def test_extracted_car_type(boris):
-    nodes, _ = get_graph_from_model(boris)
-    assert len(nodes) == 3
-    car_type = nodes[0]
-    run_test_against_ground_truth("car_type", car_type, CAR_TYPE_GROUND_TRUTH)
+DocumentChunk.model_rebuild()
 
 
-def test_extracted_car(boris):
-    nodes, _ = get_graph_from_model(boris)
-    assert len(nodes) == 3
-    car = nodes[1]
-    run_test_against_ground_truth("car", car, CAR_GROUND_TRUTH)
+async def get_graph_from_model_test():
+    document = Document(path = "file_path")
 
+    document_chunks = [DocumentChunk(
+        id = uuid5(NAMESPACE_OID, f"file{file_index}"),
+        text = "some text",
+        part_of = document,
+        contains = [],
+    ) for file_index in range(1)]
 
-def test_extracted_person(boris):
-    nodes, _ = get_graph_from_model(boris)
-    assert len(nodes) == 3
-    person = nodes[2]
-    run_test_against_ground_truth("person", person, PERSON_GROUND_TRUTH)
+    for document_chunk in document_chunks:
+        document_chunk.contains.append(Entity(
+            name = f"Entity",
+            is_type = EntityType(
+                name = "Type 1",
+            ),
+        ))
 
+    nodes = []
+    edges = []
 
-def test_extracted_car_sedan_edge(boris):
-    _, edges = get_graph_from_model(boris)
-    edge = edges[0]
+    added_nodes = {}
+    added_edges = {}
+    visited_properties = {}
 
-    assert CAR_SEDAN_EDGE[:3] == edge[:3], f"{CAR_SEDAN_EDGE[:3] = } != {edge[:3] = }"
-    for key, ground_truth in CAR_SEDAN_EDGE[3].items():
-        assert ground_truth == edge[3][key], f"{ground_truth = } != {edge[3][key] = }"
+    results = await asyncio.gather(*[
+        get_graph_from_model(
+            document_chunk,
+            added_nodes = added_nodes,
+            added_edges = added_edges,
+            visited_properties = visited_properties,
+        ) for document_chunk in document_chunks
+    ])
 
+    for result_nodes, result_edges in results:
+        nodes.extend(result_nodes)
+        edges.extend(result_edges)
 
-def test_extracted_boris_car_edge(boris):
-    _, edges = get_graph_from_model(boris)
-    edge = edges[1]
+    assert len(nodes) == 4
+    assert len(edges) == 3
 
-    assert (
-        BORIS_CAR_EDGE_GROUND_TRUTH[:3] == edge[:3]
-    ), f"{BORIS_CAR_EDGE_GROUND_TRUTH[:3] = } != {edge[:3] = }"
-    for key, ground_truth in BORIS_CAR_EDGE_GROUND_TRUTH[3].items():
-        assert ground_truth == edge[3][key], f"{ground_truth = } != {edge[3][key] = }"
+if __name__ == "__main__":
+    asyncio.run(get_graph_from_model_test())

@@ -6,7 +6,7 @@ import json
 import asyncio
 import logging
 from re import A
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 from uuid import UUID
 import aiofiles
 import aiofiles.os as aiofiles_os
@@ -274,6 +274,9 @@ class NetworkXAdapter(GraphDBInterface):
                             edge["updated_at"] = datetime.strptime(edge["updated_at"], "%Y-%m-%dT%H:%M:%S.%f%z")
 
                     self.graph = nx.readwrite.json_graph.node_link_graph(graph_data)
+
+                    for node_id, node_data in self.graph.nodes(data=True):
+                        node_data['id'] = node_id
             else:
                 # Log that the file does not exist and an empty graph is initialized
                 logger.warning("File %s not found. Initializing an empty graph.", file_path)
@@ -301,3 +304,39 @@ class NetworkXAdapter(GraphDBInterface):
             logger.info("Graph deleted successfully.")
         except Exception as error:
             logger.error("Failed to delete graph: %s", error)
+
+    async def get_filtered_graph_data(self, attribute_filters: List[Dict[str, List[Union[str, int]]]]):
+        """
+        Fetches nodes and relationships filtered by specified attribute values.
+
+        Args:
+            attribute_filters (list of dict): A list of dictionaries where keys are attributes and values are lists of values to filter on.
+                                              Example: [{"community": ["1", "2"]}]
+
+        Returns:
+            tuple: A tuple containing two lists:
+                - Nodes: List of tuples (node_id, node_properties).
+                - Edges: List of tuples (source_id, target_id, relationship_type, edge_properties).
+        """
+        # Create filters for nodes based on the attribute filters
+        where_clauses = []
+        for attribute, values in attribute_filters[0].items():
+            where_clauses.append((attribute, values))
+
+        # Filter nodes
+        filtered_nodes = [
+            (node, data) for node, data in self.graph.nodes(data=True)
+            if all(data.get(attr) in values for attr, values in where_clauses)
+        ]
+
+        # Filter edges where both source and target nodes satisfy the filters
+        filtered_edges = [
+            (source, target, data.get('relationship_type', 'UNKNOWN'), data)
+            for source, target, data in self.graph.edges(data=True)
+            if (
+                    all(self.graph.nodes[source].get(attr) in values for attr, values in where_clauses) and
+                    all(self.graph.nodes[target].get(attr) in values for attr, values in where_clauses)
+            )
+        ]
+
+        return filtered_nodes, filtered_edges

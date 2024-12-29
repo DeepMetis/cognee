@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 
 from cognee.api.DTO import OutDTO
+from cognee.infrastructure.databases.exceptions import EntityNotFoundError
 from cognee.modules.users.models import User
 from cognee.modules.users.methods import get_authenticated_user
 from cognee.modules.pipelines.models import PipelineRunStatus
@@ -55,9 +56,8 @@ def get_datasets_router() -> APIRouter:
         dataset = await get_dataset(user.id, dataset_id)
 
         if dataset is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Dataset ({dataset_id}) not found."
+            raise EntityNotFoundError(
+                message=f"Dataset ({dataset_id}) not found."
             )
 
         await delete_dataset(dataset)
@@ -72,17 +72,15 @@ def get_datasets_router() -> APIRouter:
 
         #TODO: Handle situation differently if user doesn't have permission to access data?
         if dataset is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Dataset ({dataset_id}) not found."
+            raise EntityNotFoundError(
+                message=f"Dataset ({dataset_id}) not found."
             )
 
-        data = await get_data(data_id)
+        data = await get_data(user.id, data_id)
 
         if data is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Dataset ({data_id}) not found."
+            raise EntityNotFoundError(
+                message=f"Data ({data_id}) not found."
             )
 
         await delete_data(data)
@@ -143,6 +141,7 @@ def get_datasets_router() -> APIRouter:
 
     @router.get("/{dataset_id}/data/{data_id}/raw", response_class=FileResponse)
     async def get_raw_data(dataset_id: str, data_id: str, user: User = Depends(get_authenticated_user)):
+        from cognee.modules.data.methods import get_data
         from cognee.modules.data.methods import get_dataset, get_dataset_data
 
         dataset = await get_dataset(user.id, dataset_id)
@@ -158,20 +157,18 @@ def get_datasets_router() -> APIRouter:
         dataset_data = await get_dataset_data(dataset.id)
 
         if dataset_data is None:
-            raise HTTPException(status_code=404, detail=f"No data found in dataset ({dataset_id}).")
+            raise EntityNotFoundError(message=f"No data found in dataset ({dataset_id}).")
 
         matching_data = [data for data in dataset_data if str(data.id) == data_id]
 
         # Check if matching_data contains an element
         if len(matching_data) == 0:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "detail": f"Data ({data_id}) not found in dataset ({dataset_id})."
-                }
-            )
+            raise EntityNotFoundError(message= f"Data ({data_id}) not found in dataset ({dataset_id}).")
 
-        data = matching_data[0]
+        data = await get_data(user.id, data_id)
+
+        if data is None:
+            raise EntityNotFoundError(message=f"Data ({data_id}) not found in dataset ({dataset_id}).")
 
         return data.raw_data_location
 
