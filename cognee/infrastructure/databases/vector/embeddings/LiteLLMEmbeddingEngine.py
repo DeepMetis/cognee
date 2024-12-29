@@ -59,13 +59,12 @@ class LiteLLMEmbeddingEngine(EmbeddingEngine):
                 # TODO(Hamza Zouari): file an issue with litellm
                 # `aembedding` is not awaiting the call internally
                 # causing it to return a coroutine instead of the result
-                response = await (await litellm.aembedding(
+                response = await litellm.aembedding(
                     self.model,
                     input=text,
                     api_key=self.api_key,
                     api_base=self.endpoint,
                     api_version=self.api_version
-                )
                 )
 
                 self.retry_count = 0
