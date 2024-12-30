@@ -18,8 +18,8 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9.0,<3.12"
-openai = "1.52.0"
+python = ">=3.9.0,<3.13"
+openai = ">=1.52.0"
 pydantic = "2.8.2"
 python-dotenv = "1.0.1"
 fastapi = ">=0.109.2,<0.116.0"
@@ -58,7 +58,7 @@ langsmith = {version = "0.2.3", optional = true}
 langdetect = "1.0.9"
 posthog = {version = "^3.5.0", optional = true}
 lancedb = "0.15.0"
-litellm = "1.49.1"
+litellm = "1.56.3"
 groq = {version = "0.8.0", optional = true}
 langfuse = "^2.32.0"
 pydantic-settings = "^2.2.1"
