@@ -1,45 +1,27 @@
-FROM python:3.11-slim
+FROM python:3.12-bookworm
 
-# Set build argument
-ARG DEBUG
-
-# Set environment variable based on the build argument
-ENV DEBUG=${DEBUG}
-ENV PIP_NO_CACHE_DIR=true
-ENV PATH="${PATH}:/root/.poetry/bin"
-
-RUN apt-get update && apt-get install
-
-RUN apt-get install -y \
-  gcc \
-  libpq-dev
-
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 WORKDIR /app
-COPY pyproject.toml poetry.lock /app/
 
+RUN apt-get update && apt-get install -y gcc libpq-dev && pip install uv
 
-RUN pip install poetry
+COPY LICENSE LICENSE
 
-# Don't create virtualenv since docker is already isolated
-RUN poetry config virtualenvs.create false
+COPY README.md README.md
 
-# Install the dependencies
-RUN poetry install --all-extras --no-root --no-dev
+COPY pyproject.toml pyproject.toml
 
+COPY uv.lock uv.lock
 
-# Set the PYTHONPATH environment variable to include the /app directory
-ENV PYTHONPATH=/app
+ADD cognee cognee
 
-COPY cognee/ /app/cognee
+RUN uv sync --frozen --no-dev --python-preference system -v
 
-# Copy Alembic configuration
-COPY alembic.ini /app/alembic.ini
-COPY alembic/ /app/alembic
+COPY alembic.ini alembic.ini
 
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+COPY alembic/ alembic/
 
-RUN sed -i 's/\r$//' /app/entrypoint.sh
+ENV PATH="/app/.venv/bin:$PATH"
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["uv", "run", "uvicorn", "cognee.api.client:app", "--host", "0.0.0.0", "--port","8000"]

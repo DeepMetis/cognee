@@ -1,12 +1,15 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "cognee"
 version = "0.1.20"
 description = "Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning."
-authors = ["Vasilije Markovic", "Boris Arzentar"]
+authors = [{"name" = "Vasilije Markovic"}, {"name" = "Boris Arzentar"}]
 readme = "README.md"
-license = "Apache-2.0"
-homepage = "https://www.cognee.ai"
-repository = "https://github.com/topoteretes/cognee"
+license = { file = "LICENSE" }
+requires-python = ">=3.9.0,<3.13"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -16,110 +19,291 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows"
 ]
+dependencies = [
+    "aiofiles ~= 23.2.1",
+    "aiohttp ~= 3.10.10",
+    "aiosqlite ~= 0.20.0",
+    "alembic ~= 1.14.0",
+    "anthropic ~= 0.26.1",
+    "asyncpg ~= 0.30.0",
+    "boto3 ~= 1.35.90",
+    "botocore ~= 1.35.90",
+    "datasets ~= 3.1.0",
+    "deepeval ~= 2.0.9",
+    "dlt[sqlalchemy] ~= 1.5.0",
+    "falkordb ~= 1.0.9",
+    "fastapi ~= 0.115.6",
+    "fastapi-users[sqlalchemy] ~= 14.0.0",
+    "filetype ~= 1.2.0",
+    "graphistry ~= 0.33.9",
+    "groq ~= 0.8.0",
+    "gunicorn ~= 20.1.0",
+    "httpx ~= 0.27.0",
+    "instructor ~= 1.5.2",
+    "jinja2 ~= 3.1.5",
+    "lancedb ~= 0.15.0",
+    "langchain-text-splitters ~= 0.3.2",
+    "langdetect ~= 1.0.9",
+    "langfuse ~= 2.57.2",
+    "langsmith ~= 0.2.3",
+    "litellm ~= 1.56.3",
+    "llama-index-core ~= 0.11.23",
+    "matplotlib ~= 3.9.4",
+    "neo4j ~= 5.27.0",
+    "nest-asyncio ~= 1.6.0",
+    "networkx ~= 3.2.1",
+    "nltk ~= 3.9.1",
+    "numpy ~= 1.26.4",
+    "openai ~= 1.58.1",
+    "pandas>=2.0.3",
+    "pgvector ~= 0.3.6",
+    "posthog ~= 3.7.4",
+    "pre-commit ~= 4.0.1",
+    "psycopg2-binary ~= 2.9.10",
+    "pydantic ~= 2.8.2",
+    "pydantic-settings ~= 2.7.0",
+    "pymilvus ~= 2.5.2",
+    "pypdf ~= 4.3.1",
+    "python-dotenv ~= 1.0.1",
+    "qdrant-client ~= 1.12.2",
+    "requests ~= 2.32.3",
+    "scikit-learn ~= 1.6.0",
+    "sentry-sdk[fastapi] ~= 2.19.2",
+    "sqlalchemy ~= 2.0.35",
+    "tenacity ~= 8.5.0",
+    "tiktoken ~= 0.7.0",
+    "transformers ~= 4.47.1",
+    "typing-extensions ~= 4.12.2",
+    "unstructured[csv,doc,docx,epub,md,odt,org,ppt,pptx,rst,rtf,tsv,xlsx] ~= 0.16.11",
+    "urllib3 ~= 1.26.20",
+    "uvicorn ~= 0.22.0",
+    "weaviate-client ~= 4.9.6",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9.0,<3.13"
-openai = ">=1.52.0"
-pydantic = "2.8.2"
-python-dotenv = "1.0.1"
-fastapi = ">=0.109.2,<0.116.0"
-uvicorn = "0.22.0"
-requests = "2.32.3"
-aiohttp = "3.10.10"
-typing_extensions = "4.12.2"
-nest_asyncio = "1.6.0"
-numpy = "1.26.4"
-datasets = "3.1.0"
-falkordb = {version = "1.0.9", optional = true}
-boto3 = "^1.26.125"
-botocore="^1.35.54"
-gunicorn = "^20.1.0"
-sqlalchemy = "2.0.35"
-instructor = "1.5.2"
-networkx = "^3.2.1"
-aiosqlite = "^0.20.0"
-pandas = "2.0.3"
-filetype = "^1.2.0"
-nltk = "^3.8.1"
-dlt = {extras = ["sqlalchemy"], version = "^1.4.1"}
-aiofiles = "^23.2.1"
-qdrant-client = {version = "^1.9.0", optional = true}
-graphistry = "^0.33.5"
-tenacity = "^8.4.1"
-weaviate-client = {version = "4.9.6", optional = true}
-scikit-learn = "^1.5.0"
-pypdf = "^4.1.0"
-neo4j = {version = "^5.20.0", optional = true}
-jinja2 = "^3.1.3"
-matplotlib = "^3.8.3"
-tiktoken = "0.7.0"
-langchain_text_splitters = {version = "0.3.2", optional = true}
-langsmith = {version = "0.2.3", optional = true}
-langdetect = "1.0.9"
-posthog = {version = "^3.5.0", optional = true}
-lancedb = "0.15.0"
-litellm = "1.56.3"
-groq = {version = "0.8.0", optional = true}
-langfuse = "^2.32.0"
-pydantic-settings = "^2.2.1"
-anthropic = "^0.26.1"
-sentry-sdk = {extras = ["fastapi"], version = "^2.9.0"}
-fastapi-users = {version = "*", extras = ["sqlalchemy"]}
-alembic = "^1.13.3"
-asyncpg =  {version = "0.30.0", optional = true}
-pgvector = {version = "^0.3.5", optional = true}
-psycopg2 = {version = "^2.9.10", optional = true}
-llama-index-core = {version = "^0.11.22", optional = true}
-deepeval = {version = "^2.0.1", optional = true}
-transformers = "^4.46.3"
-pymilvus = {version = "^2.5.0", optional = true}
-unstructured = { extras = ["csv", "doc", "docx", "epub", "md", "odt", "org", "ppt", "pptx", "rst", "rtf", "tsv", "xlsx"], version = "^0.16.10", optional = true }
-pre-commit = "^4.0.1"
-httpx = "0.27.0"
+# See https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#urls
+# See https://peps.python.org/pep-0753/#well-known-labels
+[project.urls]
+homepage = "https://www.cognee.ai"
+documentation = "https://docs.cognee.ai/"
+repository = "https://github.com/topoteretes/cognee"
 
+[project.optional-dependencies]
+dev = [
+    "pre-commit ~= 4.0.1",
+    "pytest ~= 7.4.4",
+    "pytest-asyncio ~= 0.21.2",
+    "coverage ~= 7.6.10",
+    "mypy ~= 1.14.0",
+    "notebook ~= 7.1.0",
+    "deptry ~= 0.20.0",
+    "debugpy ~= 1.8.9",
+    "pylint ~= 3.3.3",
+    "ruff ~= 0.8.4",
+    "tweepy ~= 4.14.0",
+    "gitpython ~= 3.1.43",]
+docs = [
+    "unstructured[csv,doc,docx,epub,md,odt,org,ppt,pptx,rst,rtf,tsv,xlsx] ~= 0.16.11",]
+deepeval = [
+    "deepeval ~= 2.0.9",]
+falkordb = [
+    "falkordb ~= 1.0.9",]
+filesystem = [
+    "s3fs",
+    "botocore ~= 1.35.90",]
+groq = [
+    "groq ~= 0.8.0",]
+langchain = [
+    "langsmith ~= 0.2.3",
+    "langchain-text-splitters ~= 0.3.2",]
+langfuse = [
+    "langfuse ~= 2.57.2",]
+llama-index = [
+    "llama-index-core ~= 0.11.23",]
+milvus = [
+    "pymilvus ~= 2.5.2",]
+neo4j = [
+    "neo4j ~= 5.27.0",]
+notebook = [
+    "notebook",
+    "ipykernel",
+    "overrides ~= 7.7.0",
+    "ipywidgets",
+    "jupyterlab",
+    "jupyterlab-widgets",
+    "jupyterlab-server",
+    "jupyterlab-git",]
+postgres = [
+    "psycopg2 ~= 2.9.10",
+    "pgvector ~= 0.3.6",
+    "asyncpg ~= 0.30.0",]
+posthog = [
+    "posthog ~= 3.7.4",]
+qdrant = [
+    "qdrant-client ~= 1.12.2",]
+weaviate = [
+    "weaviate-client ~= 4.9.6",]
 
-
-[tool.poetry.extras]
-filesystem = ["s3fs", "botocore"]
-weaviate = ["weaviate-client"]
-qdrant = ["qdrant-client"]
-neo4j = ["neo4j"]
-postgres = ["psycopg2", "pgvector", "asyncpg"]
-notebook = ["notebook", "ipykernel", "overrides", "ipywidgets", "jupyterlab", "jupyterlab_widgets", "jupyterlab-server", "jupyterlab-git"]
-langchain = ["langsmith", "langchain_text_splitters"]
-llama-index = ["llama-index-core"]
-deepeval = ["deepeval"]
-posthog = ["posthog"]
-falkordb = ["falkordb"]
-groq = ["groq"]
-langfuse = ["langfuse"]
-milvus = ["pymilvus"]
-docs = ["unstructured"]
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-asyncio = "^0.21.1"
-coverage = "^7.3.2"
-mypy = "^1.7.1"
-notebook = {version = "^7.1.0", optional = true}
-deptry = "^0.20.0"
-debugpy = "1.8.9"
-pylint = "^3.0.3"
-ruff = ">=0.2.2,<0.9.0"
-tweepy = "4.14.0"
-gitpython = "^3.1.43"
-
-[tool.poetry.group.docs.dependencies]
-mkdocs-material = "^9.5.42"
-mkdocs-minify-plugin = "^0.8.0"
-mkdocstrings = {extras = ["python"], version = "^0.26.2"}
-
-[tool.ruff] # https://beta.ruff.rs/docs/
+[tool.ruff]
 line-length = 100
 
 [tool.ruff.lint]
 ignore = ["F401"]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.mypy]
+python_version="3.9"
+ignore_missing_imports=false
+strict_optional=false
+warn_redundant_casts=true
+disallow_any_generics=true
+disallow_untyped_defs=true
+check_untyped_defs=true
+warn_return_any=true
+namespace_packages=true
+warn_unused_ignores=true
+show_error_codes=true
+#exclude=reflection/module_cases/*
+exclude="docs/examples/archive/*|tests/reflection/module_cases/*"
+
+[[tool.mypy.overrides]]
+module = "mypy-tests.*"
+disallow_untyped_defs=false
+warn_return_any=false
+
+
+[[tool.mypy.overrides]]
+module = "mypy-docs.*"
+disallow_untyped_defs=false
+
+[[tool.mypy.overrides]]
+module = "mypy-jsonpath_ng.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-astunparse.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-google.oauth2.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-google.auth.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-fsspec.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-json_logging.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-enlighten.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-alive_progress.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-googleapiclient.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-pyarrow.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-giturlparse.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-requests_oauthlib.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-google_auth_oauthlib.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-streamlit"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-logbook.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-pyodbc.*"
+# TODO: Stubs are included but seem to not be installed correctly with pyodbc 4.x.x
+# Might be fixed in pyodbc 5
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-prometheus_client.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-weaviate.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-psycopg2cffi.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-cron_descriptor.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-altair.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-pandas.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-apiclient.*"
+ignore_missing_imports=true
+
+# docs snippets
+[[tool.mypy.overrides]]
+module = "mypy-sources.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-utils.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-connectorx"
+ignore_missing_imports=true
+[[tool.mypy.overrides]]
+module = "mypy-s3fs.*"
+ignore_missing_imports=true
+[[tool.mypy.overrides]]
+module = "mypy-win_precise_time"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-databricks.*"
+ignore_missing_imports=true
+
+[[tool.mypy.overrides]]
+module = "mypy-google.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mypy-openai.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mypy-dotenv.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mypy-pytz.*"
+ignore_missing_imports = true
+

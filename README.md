@@ -37,6 +37,12 @@ pip install cognee
 poetry add cognee
 ```
 
+### With uv
+
+```bash
+uv add cognee
+```
+
 ### With pip with specific database support
 
 To install Cognee with support for specific databases use the appropriate command below. Replace \<database> with the name of the database you need.
