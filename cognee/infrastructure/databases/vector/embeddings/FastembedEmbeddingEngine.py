@@ -8,6 +8,7 @@ from cognee.infrastructure.databases.exceptions.EmbeddingException import Embedd
 from cognee.infrastructure.llm.tokenizer.TikToken import TikTokenTokenizer
 
 litellm.set_verbose = False
+litellm.drop_params = True
 logger = logging.getLogger("FastembedEmbeddingEngine")
 
 
