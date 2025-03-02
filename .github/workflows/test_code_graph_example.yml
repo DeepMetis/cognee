@@ -1,0 +1,27 @@
+name: test | code graph example
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize]
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run_simple_example_test:
+      uses: ./.github/workflows/reusable_python_example.yml
+      with:
+        example-location: ./examples/python/code_graph_example.py
+        arguments: "--repo_path ./evals"
+      secrets:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        LLM_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        EMBEDDING_PROVIDER: "fastembed"
+        EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+        EMBEDDING_DIMENSIONS: 384
+        EMBEDDING_MAX_TOKENS: 256
+        GRAPHISTRY_USERNAME: ${{ secrets.GRAPHISTRY_USERNAME }}
+        GRAPHISTRY_PASSWORD: ${{ secrets.GRAPHISTRY_PASSWORD }}

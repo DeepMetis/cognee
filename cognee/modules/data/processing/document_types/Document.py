@@ -1,17 +1,16 @@
-from uuid import UUID
-
+from typing import Optional
 from cognee.infrastructure.engine import DataPoint
+from cognee.modules.chunking.Chunker import Chunker
 
 
 class Document(DataPoint):
     name: str
     raw_data_location: str
-    metadata_id: UUID
+    external_metadata: Optional[str]
     mime_type: str
-    _metadata: dict = {
-        "index_fields": ["name"],
-        "type": "Document"
-    }
+    metadata: dict = {"index_fields": ["name"]}
 
-    def read(self, chunk_size: int, chunker = str) -> str:
+    def read(
+        self, chunk_size: int, chunker_cls: Chunker, max_chunk_tokens: Optional[int] = None
+    ) -> str:
         pass

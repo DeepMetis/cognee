@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - dev
-      - feature/*
     paths-ignore:
       - '**.md'
       - 'examples/**'
@@ -17,7 +16,7 @@ jobs:
 
   publish_docker_to_ecr:
     name: Publish Cognee Docker image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       id-token: write
       contents: read

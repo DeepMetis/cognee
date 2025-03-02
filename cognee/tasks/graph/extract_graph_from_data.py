@@ -1,5 +1,5 @@
 import asyncio
-from typing import Type
+from typing import Type, List
 
 from pydantic import BaseModel
 
@@ -10,16 +10,22 @@ from cognee.modules.graph.utils import (
     expand_with_nodes_and_edges,
     retrieve_existing_edges,
 )
+from cognee.shared.data_models import KnowledgeGraph
 from cognee.tasks.storage import add_data_points
 
 
-async def extract_graph_from_data(
-    data_chunks: list[DocumentChunk], graph_model: Type[BaseModel]
-):
-    chunk_graphs = await asyncio.gather(
-        *[extract_content_graph(chunk.text, graph_model) for chunk in data_chunks]
-    )
+async def integrate_chunk_graphs(
+    data_chunks: list[DocumentChunk], chunk_graphs: list, graph_model: Type[BaseModel]
+) -> List[DocumentChunk]:
+    """Updates DocumentChunk objects, integrates data points and edges into databases."""
     graph_engine = await get_graph_engine()
+
+    if graph_model is not KnowledgeGraph:
+        for chunk_index, chunk_graph in enumerate(chunk_graphs):
+            data_chunks[chunk_index].contains = chunk_graph
+
+        await add_data_points(chunk_graphs)
+        return data_chunks
 
     existing_edges_map = await retrieve_existing_edges(
         data_chunks,
@@ -40,3 +46,13 @@ async def extract_graph_from_data(
         await graph_engine.add_edges(graph_edges)
 
     return data_chunks
+
+
+async def extract_graph_from_data(
+    data_chunks: list[DocumentChunk], graph_model: Type[BaseModel]
+) -> List[DocumentChunk]:
+    """Extracts and integrates a knowledge graph from the text content of document chunks using a specified graph model."""
+    chunk_graphs = await asyncio.gather(
+        *[extract_content_graph(chunk.text, graph_model) for chunk in data_chunks]
+    )
+    return await integrate_chunk_graphs(data_chunks, chunk_graphs, graph_model)

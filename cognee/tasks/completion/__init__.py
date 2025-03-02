@@ -1,1 +1,1 @@
-from .query_completion import query_completion
+from cognee.tasks.completion.exceptions import NoRelevantDataFound

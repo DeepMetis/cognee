@@ -1,126 +1,202 @@
-import argparse
-import asyncio
-import sys
-from contextlib import contextmanager
-from pathlib import Path
-from typing import List, Dict, Optional
+import os
+import importlib
+from typing import AsyncGenerator, Optional
+from uuid import NAMESPACE_OID, uuid5
+import tree_sitter_python as tspython
+from tree_sitter import Language, Node, Parser, Tree
 
 import aiofiles
-import jedi
-import parso
-from parso.tree import BaseNode
 
-from cognee.tasks.repo_processor import logger
+import logging
+
+from cognee.low_level import DataPoint
+from cognee.shared.CodeGraphEntities import (
+    CodeFile,
+    ImportStatement,
+    FunctionDefinition,
+    ClassDefinition,
+)
+
+logger = logging.getLogger(__name__)
+
+PY_LANGUAGE = Language(tspython.language())
+source_code_parser = Parser(PY_LANGUAGE)
 
 
-@contextmanager
-def add_sys_path(path):
-    original_sys_path = sys.path.copy()
-    sys.path.insert(0, path)
+class FileParser:
+    def __init__(self):
+        self.parsed_files = {}
+
+    async def parse_file(self, file_path: str) -> tuple[str, Tree]:
+        if file_path not in self.parsed_files:
+            source_code = await get_source_code(file_path)
+            source_code_tree = source_code_parser.parse(bytes(source_code, "utf-8"))
+            self.parsed_files[file_path] = (source_code, source_code_tree)
+
+        return self.parsed_files[file_path]
+
+
+async def get_source_code(file_path: str):
     try:
-        yield
-    finally:
-        sys.path = original_sys_path
+        async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+            source_code = await f.read()
+            return source_code
+    except Exception as error:
+        logger.error(f"Error reading file {file_path}: {str(error)}")
+        return None
 
 
-def _get_code_entities(node: parso.tree.NodeOrLeaf) -> List[Dict[str, any]]:
-    """
-    Recursively extract code entities using parso.
-    """
-    code_entity_list = []
-
-    if not hasattr(node, 'children'):
-        return code_entity_list
-
-    name_nodes = (child for child in node.children if child.type == 'name')
-    for name_node in name_nodes:
-        code_entity = {
-            'name': name_node.value,
-            'line': name_node.start_pos[0],
-            'column': name_node.start_pos[1]
-        }
-        code_entity_list.append(code_entity)
-
-    # Recursively process child nodes
-    for child in node.children:
-        code_entity_list.extend(_get_code_entities(child))
-
-    return code_entity_list
-
-
-def _update_code_entity(script: jedi.Script, code_entity: Dict[str, any]) -> None:
-    """
-    Update a code_entity with (full_name, module_name, module_path) using Jedi
-    """
+def resolve_module_path(module_name):
+    """Find the file path of a module."""
     try:
-        results = script.goto(code_entity["line"], code_entity["column"], follow_imports=True)
-        if results:
-            result = results[0]
-            code_entity["full_name"] = getattr(result, "full_name", None)
-            code_entity["module_name"] = getattr(result, "module_name", None)
-            code_entity["module_path"] = getattr(result, "module_path", None)
-    except Exception as e:
-        # logging.warning(f"Failed to analyze code entity {code_entity['name']}: {e}")
-        logger.error(f"Failed to analyze code entity {code_entity['name']}: {e}")
+        spec = importlib.util.find_spec(module_name)
+        if spec and spec.origin:
+            return spec.origin
+    except ModuleNotFoundError:
+        return None
+    return None
 
 
-async def _extract_dependencies(script_path: str) -> List[str]:
-    try:
-        async with aiofiles.open(script_path, "r") as file:
-            source_code = await file.read()
-    except IOError as e:
-        logger.error(f"Error opening {script_path}: {e}")
-        return []
+def find_function_location(
+    module_path: str, function_name: str, parser: FileParser
+) -> Optional[tuple[str, str]]:
+    """Find the function definition in the module."""
+    if not module_path or not os.path.exists(module_path):
+        return None
 
-    jedi.set_debug_function(lambda color, str_out: None)
-    script = jedi.Script(code=source_code, path=script_path)
+    source_code, tree = parser.parse_file(module_path)
+    root_node: Node = tree.root_node
 
-    tree = parso.parse(source_code)
-    code_entities = _get_code_entities(tree)
+    for node in root_node.children:
+        if node.type == "function_definition":
+            func_name_node = node.child_by_field_name("name")
 
-    for code_entity in code_entities:
-        _update_code_entity(script, code_entity)
+            if func_name_node and func_name_node.text.decode() == function_name:
+                return (module_path, node.start_point)  # (line, column)
 
-    module_paths = {
-        entity.get("module_path")
-        for entity in code_entities
-        if entity.get("module_path") is not None
-    }
-
-    str_paths = []
-    for module_path in module_paths:
-        try:
-            str_paths.append(str(module_path))
-        except Exception as e:
-            logger.error(f"Error converting path to string: {e}")
-
-    return sorted(str_paths)
+    return None
 
 
-async def get_local_script_dependencies(script_path: str, repo_path: Optional[str] = None) -> List[str]:
-    """
-    Extract and return a list of unique module paths that the script depends on.
-    """
-    try:
-        script_path = Path(script_path).resolve(strict=True)
-    except (FileNotFoundError, PermissionError) as e:
-        logger.error(f"Error resolving script path: {e}")
-        return []
+async def get_local_script_dependencies(
+    repo_path: str, script_path: str, detailed_extraction: bool = False
+) -> CodeFile:
+    code_file_parser = FileParser()
+    source_code, source_code_tree = await code_file_parser.parse_file(script_path)
 
-    if not repo_path:
-        return await _extract_dependencies(script_path)
+    file_path_relative_to_repo = script_path[len(repo_path) + 1 :]
 
-    try:
-        repo_path = Path(repo_path).resolve(strict=True)
-    except (FileNotFoundError, PermissionError) as e:
-        logger.warning(f"Error resolving repo path: {e}. Proceeding without repo_path.")
-        return await _extract_dependencies(script_path)
+    if not detailed_extraction:
+        code_file_node = CodeFile(
+            id=uuid5(NAMESPACE_OID, script_path),
+            name=file_path_relative_to_repo,
+            source_code=source_code,
+            file_path=script_path,
+        )
+        return code_file_node
 
-    if not script_path.is_relative_to(repo_path):
-        logger.warning(f"Script {script_path} not in repo {repo_path}. Proceeding without repo_path.")
-        return await _extract_dependencies(script_path)
+    code_file_node = CodeFile(
+        id=uuid5(NAMESPACE_OID, script_path),
+        name=file_path_relative_to_repo,
+        source_code=None,
+        file_path=script_path,
+    )
 
-    with add_sys_path(str(repo_path)):
-        dependencies = await _extract_dependencies(script_path)
+    async for part in extract_code_parts(source_code_tree.root_node, script_path=script_path):
+        part.file_path = script_path
 
-    return [path for path in dependencies if path.startswith(str(repo_path))]
+        if isinstance(part, FunctionDefinition):
+            code_file_node.provides_function_definition.append(part)
+        if isinstance(part, ClassDefinition):
+            code_file_node.provides_class_definition.append(part)
+        if isinstance(part, ImportStatement):
+            code_file_node.depends_on.append(part)
+
+    return code_file_node
+
+
+def find_node(nodes: list[Node], condition: callable) -> Node:
+    for node in nodes:
+        if condition(node):
+            return node
+
+    return None
+
+
+async def extract_code_parts(
+    tree_root: Node, script_path: str, existing_nodes: list[DataPoint] = {}
+) -> AsyncGenerator[DataPoint, None]:
+    for child_node in tree_root.children:
+        if child_node.type == "import_statement" or child_node.type == "import_from_statement":
+            parts = child_node.text.decode("utf-8").split()
+
+            if parts[0] == "import":
+                module_name = parts[1]
+                function_name = None
+            elif parts[0] == "from":
+                module_name = parts[1]
+                function_name = parts[3]
+
+                if " as " in function_name:
+                    function_name = function_name.split(" as ")[0]
+
+            if " as " in module_name:
+                module_name = module_name.split(" as ")[0]
+
+            if function_name and "import " + function_name not in existing_nodes:
+                import_statement_node = ImportStatement(
+                    name=function_name,
+                    module=module_name,
+                    start_point=child_node.start_point,
+                    end_point=child_node.end_point,
+                    file_path=script_path,
+                    source_code=child_node.text,
+                )
+                existing_nodes["import " + function_name] = import_statement_node
+
+            if function_name:
+                yield existing_nodes["import " + function_name]
+
+            if module_name not in existing_nodes:
+                import_statement_node = ImportStatement(
+                    name=module_name,
+                    module=module_name,
+                    start_point=child_node.start_point,
+                    end_point=child_node.end_point,
+                    file_path=script_path,
+                    source_code=child_node.text,
+                )
+                existing_nodes[module_name] = import_statement_node
+
+            yield existing_nodes[module_name]
+
+        if child_node.type == "function_definition":
+            function_node = find_node(child_node.children, lambda node: node.type == "identifier")
+            function_node_name = function_node.text
+
+            if function_node_name not in existing_nodes:
+                function_definition_node = FunctionDefinition(
+                    name=function_node_name,
+                    start_point=child_node.start_point,
+                    end_point=child_node.end_point,
+                    file_path=script_path,
+                    source_code=child_node.text,
+                )
+                existing_nodes[function_node_name] = function_definition_node
+
+            yield existing_nodes[function_node_name]
+
+        if child_node.type == "class_definition":
+            class_name_node = find_node(child_node.children, lambda node: node.type == "identifier")
+            class_name_node_name = class_name_node.text
+
+            if class_name_node_name not in existing_nodes:
+                class_definition_node = ClassDefinition(
+                    name=class_name_node_name,
+                    start_point=child_node.start_point,
+                    end_point=child_node.end_point,
+                    file_path=script_path,
+                    source_code=child_node.text,
+                )
+                existing_nodes[class_name_node_name] = class_definition_node
+
+            yield existing_nodes[class_name_node_name]

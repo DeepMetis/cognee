@@ -19,6 +19,7 @@ def expand_with_nodes_and_edges(
         existing_edges_map = {}
 
     added_nodes_map = {}
+
     relationships = []
 
     for index, data_chunk in enumerate(data_chunks):
@@ -36,10 +37,10 @@ def expand_with_nodes_and_edges(
 
             if f"{str(type_node_id)}_type" not in added_nodes_map:
                 type_node = EntityType(
-                    id = type_node_id,
-                    name = type_node_name,
-                    type = type_node_name,
-                    description = type_node_name,
+                    id=type_node_id,
+                    name=type_node_name,
+                    type=type_node_name,
+                    description=type_node_name,
                 )
                 added_nodes_map[f"{str(type_node_id)}_type"] = type_node
             else:
@@ -47,18 +48,20 @@ def expand_with_nodes_and_edges(
 
             if f"{str(node_id)}_entity" not in added_nodes_map:
                 entity_node = Entity(
-                    id = node_id,
-                    name = node_name,
-                    is_a = type_node,
-                    description = node.description,
+                    id=node_id,
+                    name=node_name,
+                    is_a=type_node,
+                    description=node.description,
                 )
 
-                if data_chunk.contains is None:
-                    data_chunk.contains = []
-
-                data_chunk.contains.append(entity_node)
-
                 added_nodes_map[f"{str(node_id)}_entity"] = entity_node
+            else:
+                entity_node = added_nodes_map[f"{str(node_id)}_entity"]
+
+            if data_chunk.contains is None:
+                data_chunk.contains = []
+
+            data_chunk.contains.append(entity_node)
 
         # Add relationship that came from graphs.
         for edge in graph.edges:
@@ -75,11 +78,9 @@ def expand_with_nodes_and_edges(
                         target_node_id,
                         edge.relationship_name,
                         dict(
-                            relationship_name = generate_edge_name(
-                                edge.relationship_name
-                            ),
-                            source_node_id = source_node_id,
-                            target_node_id = target_node_id,
+                            relationship_name=generate_edge_name(edge.relationship_name),
+                            source_node_id=source_node_id,
+                            target_node_id=target_node_id,
                         ),
                     )
                 )

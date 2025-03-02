@@ -1,13 +1,12 @@
 from datetime import datetime, timezone
-from typing import List
 from uuid import uuid4
-from sqlalchemy import UUID, Column, DateTime, String
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy import UUID, Column, DateTime, String, JSON, Integer
+from sqlalchemy.orm import relationship
 
 from cognee.infrastructure.databases.relational import Base
 
 from .DatasetData import DatasetData
-from .Metadata import Metadata
+
 
 class Data(Base):
     __tablename__ = "data"
@@ -20,12 +19,10 @@ class Data(Base):
     raw_data_location = Column(String)
     owner_id = Column(UUID, index=True)
     content_hash = Column(String)
-    created_at = Column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = Column(
-        DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc)
-    )
+    external_metadata = Column(JSON)
+    token_count = Column(Integer)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
 
     datasets = relationship(
         "Dataset",
@@ -34,14 +31,6 @@ class Data(Base):
         lazy="noload",
         cascade="all, delete",
     )
-
-    metadata_relationship = relationship(
-        "Metadata",
-        back_populates="data",
-        lazy="noload",
-        cascade="all, delete",
-    )
-
 
     def to_json(self) -> dict:
         return {

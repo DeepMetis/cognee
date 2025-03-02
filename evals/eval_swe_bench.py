@@ -8,13 +8,12 @@ from swebench.harness.utils import load_swebench_dataset
 from swebench.inference.make_datasets.create_instance import PATCH_EXAMPLE
 
 from cognee.api.v1.cognify.code_graph_pipeline import run_code_graph_pipeline
-from cognee.api.v1.search import SearchType
 from cognee.infrastructure.llm.get_llm_client import get_llm_client
 from cognee.infrastructure.llm.prompts import read_query_prompt
-from cognee.modules.retrieval.brute_force_triplet_search import \
-    brute_force_triplet_search
-from cognee.shared.utils import render_graph
-from evals.eval_utils import download_github_repo, retrieved_edges_to_string
+from cognee.modules.retrieval.utils.description_to_codepart_search import (
+    code_description_to_code_part_search,
+)
+from evals.eval_utils import download_github_repo
 
 
 def check_install_package(package_name):
@@ -27,41 +26,51 @@ def check_install_package(package_name):
         return True
     except ImportError:
         try:
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", package_name]
-            )
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
             return True
         except subprocess.CalledProcessError:
             return False
 
 
-async def generate_patch_with_cognee(instance, llm_client, search_type=SearchType.CHUNKS):
-    repo_path = download_github_repo(instance, '../RAW_GIT_REPOS')
-    pipeline = await run_code_graph_pipeline(repo_path)
+async def generate_patch_with_cognee(instance):
+    import os
+    from cognee import config
 
-    async for result in pipeline:
-        print(result)
+    file_path = Path(__file__).parent
+    data_directory_path = str(Path(os.path.join(file_path, ".data_storage/code_graph")).resolve())
 
-    print('Here we have the repo under the repo_path')
+    config.data_root_directory(data_directory_path)
+    config.system_root_directory(data_directory_path)
 
-    await render_graph(None, include_labels=True, include_nodes=True)
-
-    problem_statement = instance['problem_statement']
+    repo_path = download_github_repo(instance, "../RAW_GIT_REPOS")
+    include_docs = True
+    problem_statement = instance["problem_statement"]
     instructions = read_query_prompt("patch_gen_kg_instructions.txt")
 
-    retrieved_edges = await brute_force_triplet_search(problem_statement, top_k=3,
-                                                       collections=["data_point_source_code", "data_point_text"])
+    async for result in run_code_graph_pipeline(repo_path, include_docs=include_docs):
+        print(result)
 
-    retrieved_edges_str = retrieved_edges_to_string(retrieved_edges)
+    retrieved_codeparts, context_from_documents = await code_description_to_code_part_search(
+        problem_statement, include_docs=include_docs
+    )
 
-    prompt = "\n".join([
-        problem_statement,
-        "<patch>",
-        PATCH_EXAMPLE,
-        "</patch>",
-        "These are the retrieved edges:",
-        retrieved_edges_str
-    ])
+    context = ""
+    for code_piece in retrieved_codeparts:
+        context = context + code_piece.get_attribute("source_code")
+
+    if include_docs:
+        context = context_from_documents + context
+
+    prompt = "\n".join(
+        [
+            problem_statement,
+            "<patch>",
+            PATCH_EXAMPLE,
+            "</patch>",
+            "This is the additional context to solve the problem (description from documentation together with codeparts):",
+            context,
+        ]
+    )
 
     llm_client = get_llm_client()
     answer_prediction = await llm_client.acreate_structured_output(
@@ -85,8 +94,6 @@ async def generate_patch_without_cognee(instance, llm_client):
 
 
 async def get_preds(dataset, with_cognee=True):
-    llm_client = get_llm_client()
-
     if with_cognee:
         model_name = "with_cognee"
         pred_func = generate_patch_with_cognee
@@ -94,28 +101,25 @@ async def get_preds(dataset, with_cognee=True):
         model_name = "without_cognee"
         pred_func = generate_patch_without_cognee
 
-    futures = [
-        (instance["instance_id"], pred_func(instance, llm_client))
-        for instance in dataset
-    ]
-    model_patches = await asyncio.gather(*[x[1] for x in futures])
+    preds = []
 
-    preds = [
-        {
-            "instance_id": instance_id,
-            "model_patch": model_patch,
-            "model_name_or_path": model_name,
-        }
-        for (instance_id, _), model_patch in zip(futures, model_patches)
-    ]
+    for instance in dataset:
+        instance_id = instance["instance_id"]
+        model_patch = await pred_func(instance)  # Sequentially await the async function
+        preds.append(
+            {
+                "instance_id": instance_id,
+                "model_patch": model_patch,
+                "model_name_or_path": model_name,
+            }
+        )
 
     return preds
 
 
 async def main():
-    parser = argparse.ArgumentParser(
-        description="Run LLM predictions on SWE-bench dataset")
-    parser.add_argument('--cognee_off', action='store_true')
+    parser = argparse.ArgumentParser(description="Run LLM predictions on SWE-bench dataset")
+    parser.add_argument("--cognee_off", action="store_true")
     parser.add_argument("--max_workers", type=int, required=True)
     args = parser.parse_args()
 
@@ -123,22 +127,22 @@ async def main():
         check_install_package(dependency)
 
     if args.cognee_off:
-        dataset_name = 'princeton-nlp/SWE-bench_Lite_bm25_13K'
-        dataset = load_swebench_dataset(dataset_name, split='test')
+        dataset_name = "princeton-nlp/SWE-bench_Lite_bm25_13K"
+        dataset = load_swebench_dataset(dataset_name, split="test")
         predictions_path = "preds_nocognee.json"
         if not Path(predictions_path).exists():
             preds = await get_preds(dataset, with_cognee=False)
             with open(predictions_path, "w") as file:
                 json.dump(preds, file)
     else:
-        dataset_name = 'princeton-nlp/SWE-bench_Lite'
-        swe_dataset = load_swebench_dataset(
-            dataset_name, split='test')[:1]
+        dataset_name = "princeton-nlp/SWE-bench_Lite"
+        swe_dataset = load_swebench_dataset(dataset_name, split="test")[:1]
         predictions_path = "preds.json"
         preds = await get_preds(swe_dataset, with_cognee=not args.cognee_off)
         with open(predictions_path, "w") as file:
             json.dump(preds, file)
 
+    """ This part is for the evaluation
     subprocess.run(
         [
             "python",
@@ -156,6 +160,7 @@ async def main():
             "test_run",
         ]
     )
+    """
 
 
 if __name__ == "__main__":
