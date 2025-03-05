@@ -12,6 +12,7 @@ from cognee.infrastructure.llm.tokenizer.Mistral import MistralTokenizer
 from cognee.infrastructure.llm.tokenizer.TikToken import TikTokenTokenizer
 
 litellm.set_verbose = False
+litellm.drop_params = True
 logger = logging.getLogger("LiteLLMEmbeddingEngine")
 
 
